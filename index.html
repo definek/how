@@ -12,11 +12,14 @@
     --blue-bg: #E8F3FF;
     --grey900: #191F28;
     --grey700: #4E5968;
+    --grey600: #6B7684;
     --grey500: #8B95A1;
     --grey400: #B0B8C1;
+    --grey300: #D1D6DB;
     --grey200: #E5E8EB;
     --grey100: #F2F4F6;
     --red: #F04452;
+    --red-bg: #FFF0F0;
     --radius: 20px;
   }
 
@@ -36,7 +39,7 @@
     min-height: 100dvh;
     display: flex;
     justify-content: center;
-    padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 24px);
+    padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 32px);
   }
 
   .app {
@@ -115,12 +118,33 @@
     padding: 7px 14px;
     letter-spacing: -0.2px;
   }
-  .result .caption.warn {
-    color: var(--red);
-    background: #FFF0F0;
-  }
+  .result .caption.warn { color: var(--red); background: var(--red-bg); }
 
   /* ── 입력 ───────────────────────────── */
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .card-head h2 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--blue);
+    background: var(--blue-bg);
+    border-radius: 999px;
+    padding: 5px 10px;
+    letter-spacing: -0.2px;
+  }
+  .badge.hidden { display: none; }
+
   .fields { display: flex; flex-direction: column; gap: 20px; }
 
   .field label {
@@ -142,10 +166,7 @@
     height: 58px;
     transition: border-color 0.15s ease, background 0.15s ease;
   }
-  .input-wrap:focus-within {
-    border-color: var(--blue);
-    background: #FFFFFF;
-  }
+  .input-wrap:focus-within { border-color: var(--blue); background: #FFFFFF; }
   .input-wrap input {
     flex: 1;
     min-width: 0;
@@ -167,6 +188,12 @@
     color: var(--grey500);
     flex-shrink: 0;
   }
+  .input-wrap.date input {
+    text-align: left;
+    font-size: 18px;
+    min-height: 24px;
+  }
+  .input-wrap.date input::-webkit-date-and-time-value { text-align: left; }
 
   /* ── 요약 ───────────────────────────── */
   .summary {
@@ -191,29 +218,160 @@
 
   /* ── 버튼 ───────────────────────────── */
   button {
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.08s ease, color 0.15s ease;
+  }
+  button:active { transform: scale(0.985); }
+
+  .btn {
     width: 100%;
     height: 56px;
-    border: 0;
     border-radius: 14px;
-    font: inherit;
     font-size: 17px;
     font-weight: 700;
     letter-spacing: -0.3px;
-    cursor: pointer;
-    transition: background 0.15s ease, transform 0.08s ease;
   }
-  button:active { transform: scale(0.985); }
-  .btn-reset {
+  .btn-primary { background: var(--blue); color: #FFFFFF; }
+  .btn-primary:active { background: var(--blue-pressed); }
+  .btn-secondary { background: var(--blue-bg); color: var(--blue); }
+  .btn-secondary:active { background: #D3E7FD; }
+  .btn-quiet { background: var(--grey100); color: var(--grey600); }
+  .btn-quiet:active { background: var(--grey200); }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-row .btn { flex: 1; }
+  .btn-row .btn.narrow { flex: 0 0 34%; }
+
+  /* ── 기록 목록 ───────────────────────── */
+  .list-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    background: var(--grey100);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .list-total .k {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--grey600);
+    letter-spacing: -0.2px;
+  }
+  .list-total .v {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--grey900);
+    letter-spacing: -0.5px;
+  }
+
+  ul.records { list-style: none; margin: 0; padding: 0; }
+  ul.records li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 0;
+    border-top: 1px solid var(--grey200);
+  }
+  ul.records li:first-child { border-top: 0; }
+  ul.records li.editing {
     background: var(--blue-bg);
-    color: var(--blue);
+    border-radius: 12px;
+    padding: 16px 12px;
+    margin: 4px 0;
+    border-top-color: transparent;
   }
-  .btn-reset:active { background: #D3E7FD; }
+  .rec-main { flex: 1; min-width: 0; }
+  .rec-date {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--grey500);
+    letter-spacing: -0.2px;
+  }
+  .rec-amount {
+    margin-top: 3px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--grey900);
+    letter-spacing: -0.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rec-amount.neg { color: var(--red); }
+  .rec-sub {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--grey500);
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rec-actions { display: flex; gap: 6px; flex-shrink: 0; }
+  .chip {
+    height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    background: var(--grey100);
+    color: var(--grey700);
+  }
+  .chip:active { background: var(--grey200); }
+  .chip.danger { color: var(--red); background: var(--red-bg); }
+  .chip.danger:active { background: #FFE0E0; }
+
+  .empty {
+    text-align: center;
+    padding: 28px 0 8px;
+    color: var(--grey400);
+    font-size: 14px;
+    letter-spacing: -0.2px;
+  }
+
+  /* ── 백업 ───────────────────────────── */
+  .backup { display: flex; gap: 10px; }
+  .backup .btn { height: 50px; font-size: 15px; }
 
   footer {
     text-align: center;
     font-size: 12px;
     color: var(--grey400);
     letter-spacing: -0.2px;
+    line-height: 1.6;
+  }
+
+  /* ── 토스트 ─────────────────────────── */
+  #toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    transform: translate(-50%, 12px);
+    background: rgba(25, 31, 40, 0.92);
+    color: #FFFFFF;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    padding: 13px 20px;
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    max-width: calc(100% - 40px);
+    text-align: center;
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 </style>
 </head>
@@ -221,7 +379,7 @@
   <main class="app">
     <header>
       <h1>주간매출 계산기</h1>
-      <p>현재매출에서 야간매출을 빼서 계산해요.</p>
+      <p>현재매출에서 야간매출을 빼서 계산하고 기록해요.</p>
     </header>
 
     <section class="card result">
@@ -231,7 +389,19 @@
     </section>
 
     <section class="card">
+      <div class="card-head">
+        <h2>매출 입력</h2>
+        <span class="badge hidden" id="editBadge">수정 중</span>
+      </div>
+
       <div class="fields">
+        <div class="field">
+          <label for="date">날짜</label>
+          <div class="input-wrap date">
+            <input id="date" type="date" />
+          </div>
+        </div>
+
         <div class="field">
           <label for="night">야간매출</label>
           <div class="input-wrap">
@@ -267,22 +437,54 @@
           <span class="v" id="sumResult">0원</span>
         </div>
       </div>
+
+      <div class="btn-row">
+        <button class="btn btn-quiet narrow" id="reset" type="button">초기화</button>
+        <button class="btn btn-primary" id="save" type="button">저장하기</button>
+      </div>
     </section>
 
-    <button class="btn-reset" id="reset" type="button">초기화</button>
+    <section class="card">
+      <div class="card-head">
+        <h2>저장된 기록</h2>
+        <span class="badge" id="countBadge">0건</span>
+      </div>
 
-    <footer>입력값은 이 기기에만 저장돼요</footer>
+      <div class="list-total">
+        <span class="k">주간매출 합계</span>
+        <span class="v" id="grandTotal">0원</span>
+      </div>
+
+      <ul class="records" id="records"></ul>
+      <div class="empty" id="empty">아직 저장된 기록이 없어요</div>
+    </section>
+
+    <div class="backup">
+      <button class="btn btn-secondary" id="export" type="button">JSON 내보내기</button>
+      <button class="btn btn-quiet" id="importBtn" type="button">불러오기</button>
+      <input type="file" id="importFile" accept="application/json,.json" class="visually-hidden" />
+    </div>
+
+    <footer>
+      기록은 이 기기의 브라우저에만 JSON으로 저장돼요.<br />
+      앱 삭제나 저장소 정리 시 사라지니 가끔 내보내 두세요.
+    </footer>
   </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (function () {
   'use strict';
 
   var STORAGE_KEY = 'weekly-sales-calculator';
+  var SCHEMA_VERSION = 1;
   var MAX_DIGITS = 12;                  // 입력 상한: 999,999,999,999원
   var FONT_STEPS = [52, 44, 36, 30];    // 자리수가 길어지면 단계적으로 축소
+  var DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
   var els = {
+    date:       document.getElementById('date'),
     night:      document.getElementById('night'),
     current:    document.getElementById('current'),
     result:     document.getElementById('result'),
@@ -290,10 +492,40 @@
     sumNight:   document.getElementById('sumNight'),
     sumCurrent: document.getElementById('sumCurrent'),
     sumResult:  document.getElementById('sumResult'),
-    reset:      document.getElementById('reset')
+    reset:      document.getElementById('reset'),
+    save:       document.getElementById('save'),
+    editBadge:  document.getElementById('editBadge'),
+    countBadge: document.getElementById('countBadge'),
+    grandTotal: document.getElementById('grandTotal'),
+    records:    document.getElementById('records'),
+    empty:      document.getElementById('empty'),
+    exportBtn:  document.getElementById('export'),
+    importBtn:  document.getElementById('importBtn'),
+    importFile: document.getElementById('importFile'),
+    toast:      document.getElementById('toast')
   };
 
   var comma = new Intl.NumberFormat('ko-KR');
+
+  /* 로컬 DB: { version, draft, records[] } — localStorage에 JSON으로 보관 */
+  var db = { version: SCHEMA_VERSION, draft: null, records: [] };
+  var editingId = null;
+
+  /* ── 유틸 ───────────────────────────── */
+  function todayStr() {
+    var d = new Date();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  function prettyDate(iso) {
+    var p = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    if (!p) return iso || '날짜 없음';
+    // 문자열을 직접 쪼개 로컬 기준 날짜로 만든다 (UTC 파싱 시 요일이 밀림)
+    var d = new Date(Number(p[1]), Number(p[2]) - 1, Number(p[3]));
+    return p[1] + '. ' + Number(p[2]) + '. ' + Number(p[3]) + ' (' + DAYS[d.getDay()] + ')';
+  }
 
   function digitsOf(str) {
     return String(str).replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
@@ -302,6 +534,20 @@
   function valueOf(input) {
     var d = digitsOf(input.value).slice(0, MAX_DIGITS);
     return d ? Number(d) : 0;
+  }
+
+  function num(v) {
+    var n = Number(v);
+    return isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+  }
+
+  function toast(msg) {
+    els.toast.textContent = msg;
+    els.toast.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () {
+      els.toast.classList.remove('show');
+    }, 1900);
   }
 
   /** 금액이 길어져도 카드 밖으로 넘치지 않도록 글자 크기를 맞춘다. */
@@ -324,7 +570,6 @@
     var next = d ? comma.format(Number(d)) : '';
     input.value = next;
 
-    // 커서 앞에 같은 개수의 숫자가 오도록 위치를 되돌린다.
     var pos = 0, seen = 0;
     while (pos < next.length && seen < digitsBefore) {
       if (/[0-9]/.test(next[pos])) seen++;
@@ -335,7 +580,61 @@
     }
   }
 
-  function render() {
+  /* ── 저장소 (JSON) ──────────────────── */
+  function persist() {
+    db.version = SCHEMA_VERSION;
+    db.draft = {
+      date: els.date.value || todayStr(),
+      night: valueOf(els.night),
+      current: valueOf(els.current)
+    };
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch (e) {}
+  }
+
+  function sanitize(rec) {
+    if (!rec || typeof rec !== 'object') return null;
+    var date = /^\d{4}-\d{2}-\d{2}$/.test(rec.date) ? rec.date : todayStr();
+    return {
+      id: String(rec.id || newId()),
+      date: date,
+      night: num(rec.night),
+      current: num(rec.current),
+      savedAt: rec.savedAt || new Date().toISOString()
+    };
+  }
+
+  function load() {
+    var saved;
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { saved = {}; }
+    if (!saved || typeof saved !== 'object') saved = {};
+
+    db.records = Array.isArray(saved.records)
+      ? saved.records.map(sanitize).filter(Boolean)
+      : [];
+
+    // 구버전({night, current})도 입력값으로 이어받는다.
+    var draft = saved.draft && typeof saved.draft === 'object' ? saved.draft : saved;
+    els.date.value = /^\d{4}-\d{2}-\d{2}$/.test(draft.date) ? draft.date : todayStr();
+    if (num(draft.night) > 0) els.night.value = comma.format(num(draft.night));
+    if (num(draft.current) > 0) els.current.value = comma.format(num(draft.current));
+
+    sortRecords();
+  }
+
+  function newId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8);
+  }
+
+  function sortRecords() {
+    db.records.sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;   // 최신 날짜 먼저
+      return (a.savedAt < b.savedAt) ? 1 : -1;
+    });
+  }
+
+  /* ── 렌더 ───────────────────────────── */
+  function renderResult() {
     var night = valueOf(els.night);
     var current = valueOf(els.current);
     var weekly = current - night;
@@ -358,8 +657,74 @@
         ? '금액을 입력해 주세요'
         : comma.format(current) + ' − ' + comma.format(night);
     }
+  }
 
-    save({ night: night, current: current });
+  function renderList() {
+    els.records.innerHTML = '';
+
+    var total = 0;
+    db.records.forEach(function (r) {
+      total += r.current - r.night;
+
+      var li = document.createElement('li');
+      if (r.id === editingId) li.className = 'editing';
+
+      var weekly = r.current - r.night;
+      var main = document.createElement('div');
+      main.className = 'rec-main';
+
+      var date = document.createElement('div');
+      date.className = 'rec-date';
+      date.textContent = prettyDate(r.date);
+
+      var amount = document.createElement('div');
+      amount.className = 'rec-amount' + (weekly < 0 ? ' neg' : '');
+      amount.textContent = comma.format(weekly) + '원';
+
+      var sub = document.createElement('div');
+      sub.className = 'rec-sub';
+      sub.textContent = '현재 ' + comma.format(r.current) + ' − 야간 ' + comma.format(r.night);
+
+      main.appendChild(date);
+      main.appendChild(amount);
+      main.appendChild(sub);
+
+      var actions = document.createElement('div');
+      actions.className = 'rec-actions';
+      actions.appendChild(chipButton('수정', 'edit', r.id));
+      actions.appendChild(chipButton('삭제', 'delete', r.id, true));
+
+      li.appendChild(main);
+      li.appendChild(actions);
+      els.records.appendChild(li);
+    });
+
+    els.countBadge.textContent = db.records.length + '건';
+    els.grandTotal.textContent = comma.format(total) + '원';
+    els.empty.style.display = db.records.length ? 'none' : 'block';
+  }
+
+  function chipButton(label, act, id, danger) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (danger ? ' danger' : '');
+    b.textContent = label;
+    b.dataset.act = act;
+    b.dataset.id = id;
+    return b;
+  }
+
+  function renderMode() {
+    var editing = editingId !== null;
+    els.editBadge.classList.toggle('hidden', !editing);
+    els.save.textContent = editing ? '수정 완료' : '저장하기';
+    els.reset.textContent = editing ? '취소' : '초기화';
+  }
+
+  function renderAll() {
+    renderResult();
+    renderList();
+    renderMode();
   }
 
   function pop() {
@@ -368,32 +733,156 @@
     els.result.classList.add('pop');
   }
 
-  /* ── 로컬 상태 저장 (JSON) ─────────────── */
-  function save(state) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  /* ── CRUD ───────────────────────────── */
+  function clearInputs() {
+    els.night.value = '';
+    els.current.value = '';
+    els.date.value = todayStr();
   }
 
-  function load() {
-    try {
-      var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      if (typeof saved.night === 'number' && saved.night > 0) {
-        els.night.value = comma.format(saved.night);
+  function saveRecord() {
+    var night = valueOf(els.night);
+    var current = valueOf(els.current);
+
+    if (night === 0 && current === 0) {
+      toast('금액을 먼저 입력해 주세요');
+      els.current.focus();
+      return;
+    }
+
+    var date = els.date.value || todayStr();
+
+    if (editingId !== null) {
+      var target = db.records.filter(function (r) { return r.id === editingId; })[0];
+      if (target) {
+        target.date = date;
+        target.night = night;
+        target.current = current;
+        target.savedAt = new Date().toISOString();
       }
-      if (typeof saved.current === 'number' && saved.current > 0) {
-        els.current.value = comma.format(saved.current);
-      }
-    } catch (e) {}
+      editingId = null;
+      toast('기록을 수정했어요');
+    } else {
+      db.records.push({
+        id: newId(),
+        date: date,
+        night: night,
+        current: current,
+        savedAt: new Date().toISOString()
+      });
+      toast('기록을 저장했어요');
+    }
+
+    sortRecords();
+    clearInputs();
+    persist();
+    renderAll();
+    pop();
   }
 
-  /* ── 이벤트 ───────────────────────────── */
+  function startEdit(id) {
+    var r = db.records.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+
+    editingId = id;
+    els.date.value = r.date;
+    els.night.value = r.night ? comma.format(r.night) : '';
+    els.current.value = r.current ? comma.format(r.current) : '';
+
+    persist();
+    renderAll();
+    pop();
+    els.save.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+
+  function cancelEdit() {
+    editingId = null;
+    clearInputs();
+    persist();
+    renderAll();
+  }
+
+  function removeRecord(id) {
+    var r = db.records.filter(function (x) { return x.id === id; })[0];
+    if (!r) return;
+    if (!window.confirm(prettyDate(r.date) + ' 기록을 삭제할까요?')) return;
+
+    db.records = db.records.filter(function (x) { return x.id !== id; });
+    if (editingId === id) {
+      editingId = null;
+      clearInputs();
+    }
+    persist();
+    renderAll();
+    toast('기록을 삭제했어요');
+  }
+
+  /* ── 내보내기 / 불러오기 ─────────────── */
+  function exportJson() {
+    if (!db.records.length) {
+      toast('내보낼 기록이 없어요');
+      return;
+    }
+    var payload = {
+      version: SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      records: db.records
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'weekly-sales-' + todayStr() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    toast('JSON 파일로 내보냈어요');
+  }
+
+  function importJson(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var parsed;
+      try { parsed = JSON.parse(reader.result); } catch (e) {
+        toast('JSON 파일을 읽을 수 없어요');
+        return;
+      }
+      var incoming = Array.isArray(parsed) ? parsed
+                   : (parsed && Array.isArray(parsed.records) ? parsed.records : null);
+      if (!incoming) {
+        toast('기록이 들어있지 않은 파일이에요');
+        return;
+      }
+      var clean = incoming.map(sanitize).filter(Boolean);
+      if (!clean.length) {
+        toast('불러올 기록이 없어요');
+        return;
+      }
+      if (db.records.length &&
+          !window.confirm('현재 기록 ' + db.records.length + '건을 불러온 ' + clean.length + '건으로 교체할까요?')) {
+        return;
+      }
+      db.records = clean;
+      editingId = null;
+      sortRecords();
+      persist();
+      renderAll();
+      toast(clean.length + '건을 불러왔어요');
+    };
+    reader.onerror = function () { toast('파일을 읽지 못했어요'); };
+    reader.readAsText(file);
+  }
+
+  /* ── 이벤트 ─────────────────────────── */
   [els.night, els.current].forEach(function (input) {
     input.addEventListener('input', function () {
       reformat(input);
-      render();
+      renderResult();
+      persist();
       pop();
     });
     input.addEventListener('focus', function () {
-      // 모바일에서 키보드가 올라온 뒤 입력칸이 가려지지 않도록
       setTimeout(function () {
         input.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }, 250);
@@ -403,18 +892,41 @@
     });
   });
 
+  els.date.addEventListener('change', persist);
+
+  els.save.addEventListener('click', saveRecord);
+
   els.reset.addEventListener('click', function () {
-    els.night.value = '';
-    els.current.value = '';
-    render();
+    if (editingId !== null) {
+      cancelEdit();
+      toast('수정을 취소했어요');
+      return;
+    }
+    clearInputs();
+    persist();
+    renderAll();
     pop();
     els.night.focus();
+  });
+
+  els.records.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('button[data-act]') : null;
+    if (!btn) return;
+    if (btn.dataset.act === 'edit') startEdit(btn.dataset.id);
+    else if (btn.dataset.act === 'delete') removeRecord(btn.dataset.id);
+  });
+
+  els.exportBtn.addEventListener('click', exportJson);
+  els.importBtn.addEventListener('click', function () { els.importFile.click(); });
+  els.importFile.addEventListener('change', function () {
+    if (this.files && this.files[0]) importJson(this.files[0]);
+    this.value = ''; // 같은 파일을 다시 골라도 change가 걸리도록
   });
 
   window.addEventListener('resize', fitResult);
 
   load();
-  render();
+  renderAll();
 })();
 </script>
 </body>
