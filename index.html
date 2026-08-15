@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#F2F4F6" />
+<title>주간매출 계산기</title>
+<style>
+  :root {
+    --blue: #3182F6;
+    --blue-pressed: #1B64DA;
+    --blue-bg: #E8F3FF;
+    --grey900: #191F28;
+    --grey700: #4E5968;
+    --grey500: #8B95A1;
+    --grey400: #B0B8C1;
+    --grey200: #E5E8EB;
+    --grey100: #F2F4F6;
+    --red: #F04452;
+    --radius: 20px;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--grey100);
+    color: var(--grey900);
+    font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                 "Segoe UI", Roboto, "Malgun Gothic", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100dvh;
+    display: flex;
+    justify-content: center;
+    padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 24px);
+  }
+
+  .app {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 32px;
+  }
+
+  /* ── 헤더 ───────────────────────────── */
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+  }
+  header p {
+    margin: 0;
+    font-size: 15px;
+    color: var(--grey500);
+    letter-spacing: -0.2px;
+  }
+
+  /* ── 카드 ───────────────────────────── */
+  .card {
+    background: #FFFFFF;
+    border-radius: var(--radius);
+    padding: 24px 20px;
+  }
+
+  /* ── 결과 ───────────────────────────── */
+  .result {
+    text-align: center;
+    padding: 36px 20px 32px;
+  }
+  .result .label {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--grey500);
+    letter-spacing: -0.2px;
+  }
+  .result .amount {
+    margin-top: 12px;
+    font-size: 52px;
+    line-height: 1.15;
+    font-weight: 800;
+    letter-spacing: -2px;
+    color: var(--blue);
+    white-space: nowrap;
+    transition: color 0.15s ease;
+  }
+  .result .amount .unit {
+    font-size: 0.54em;
+    font-weight: 700;
+    letter-spacing: -0.6px;
+    margin-left: 4px;
+  }
+  .result .amount.is-negative { color: var(--red); }
+  .result .amount.is-zero { color: var(--grey400); }
+  .result .amount.pop { animation: pop 0.22s ease-out; }
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.045); }
+    100% { transform: scale(1); }
+  }
+  .result .caption {
+    margin-top: 14px;
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--grey500);
+    background: var(--grey100);
+    border-radius: 999px;
+    padding: 7px 14px;
+    letter-spacing: -0.2px;
+  }
+  .result .caption.warn {
+    color: var(--red);
+    background: #FFF0F0;
+  }
+
+  /* ── 입력 ───────────────────────────── */
+  .fields { display: flex; flex-direction: column; gap: 20px; }
+
+  .field label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--grey700);
+    margin-bottom: 8px;
+    letter-spacing: -0.2px;
+  }
+  .input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--grey100);
+    border: 1.5px solid transparent;
+    border-radius: 14px;
+    padding: 0 16px;
+    height: 58px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .input-wrap:focus-within {
+    border-color: var(--blue);
+    background: #FFFFFF;
+  }
+  .input-wrap input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--grey900);
+    text-align: right;
+    padding: 0;
+  }
+  .input-wrap input::placeholder { color: var(--grey400); font-weight: 600; }
+  .input-wrap .won {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--grey500);
+    flex-shrink: 0;
+  }
+
+  /* ── 요약 ───────────────────────────── */
+  .summary {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--grey200);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .summary .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 14px;
+    letter-spacing: -0.2px;
+  }
+  .summary .row .k { color: var(--grey500); font-weight: 500; }
+  .summary .row .v { color: var(--grey700); font-weight: 600; }
+  .summary .row.total .k { color: var(--grey900); font-weight: 700; }
+  .summary .row.total .v { color: var(--blue); font-weight: 700; }
+
+  /* ── 버튼 ───────────────────────────── */
+  button {
+    width: 100%;
+    height: 56px;
+    border: 0;
+    border-radius: 14px;
+    font: inherit;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.08s ease;
+  }
+  button:active { transform: scale(0.985); }
+  .btn-reset {
+    background: var(--blue-bg);
+    color: var(--blue);
+  }
+  .btn-reset:active { background: #D3E7FD; }
+
+  footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--grey400);
+    letter-spacing: -0.2px;
+  }
+</style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>주간매출 계산기</h1>
+      <p>현재매출에서 야간매출을 빼서 계산해요.</p>
+    </header>
+
+    <section class="card result">
+      <div class="label">주간매출</div>
+      <div class="amount is-zero" id="result">0<span class="unit">원</span></div>
+      <div class="caption" id="caption">금액을 입력해 주세요</div>
+    </section>
+
+    <section class="card">
+      <div class="fields">
+        <div class="field">
+          <label for="night">야간매출</label>
+          <div class="input-wrap">
+            <input id="night" type="text" inputmode="numeric" autocomplete="off"
+                   enterkeyhint="done" placeholder="0" aria-describedby="result" />
+            <span class="won">원</span>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="current">현재매출</label>
+          <div class="input-wrap">
+            <input id="current" type="text" inputmode="numeric" autocomplete="off"
+                   enterkeyhint="done" placeholder="0" aria-describedby="result" />
+            <span class="won">원</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="row">
+          <span class="k">현재매출</span>
+          <span class="v" id="sumCurrent">0원</span>
+        </div>
+        <div class="row">
+          <span class="k">야간매출</span>
+          <span class="v" id="sumNight">- 0원</span>
+        </div>
+        <div class="row total">
+          <span class="k">주간매출</span>
+          <span class="v" id="sumResult">0원</span>
+        </div>
+      </div>
+    </section>
+
+    <button class="btn-reset" id="reset" type="button">초기화</button>
+
+    <footer>입력값은 이 기기에만 저장돼요</footer>
+  </main>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'weekly-sales-calculator';
+  var MAX_DIGITS = 12;                  // 입력 상한: 999,999,999,999원
+  var FONT_STEPS = [52, 44, 36, 30];    // 자리수가 길어지면 단계적으로 축소
+
+  var els = {
+    night:      document.getElementById('night'),
+    current:    document.getElementById('current'),
+    result:     document.getElementById('result'),
+    caption:    document.getElementById('caption'),
+    sumNight:   document.getElementById('sumNight'),
+    sumCurrent: document.getElementById('sumCurrent'),
+    sumResult:  document.getElementById('sumResult'),
+    reset:      document.getElementById('reset')
+  };
+
+  var comma = new Intl.NumberFormat('ko-KR');
+
+  function digitsOf(str) {
+    return String(str).replace(/[^0-9]/g, '').replace(/^0+(?=\d)/, '');
+  }
+
+  function valueOf(input) {
+    var d = digitsOf(input.value).slice(0, MAX_DIGITS);
+    return d ? Number(d) : 0;
+  }
+
+  /** 금액이 길어져도 카드 밖으로 넘치지 않도록 글자 크기를 맞춘다. */
+  function fitResult() {
+    var box = els.result.parentNode;
+    var room = box.clientWidth - 40; // 좌우 여백
+    for (var i = 0; i < FONT_STEPS.length; i++) {
+      els.result.style.fontSize = FONT_STEPS[i] + 'px';
+      if (els.result.scrollWidth <= room) break;
+    }
+  }
+
+  /** 콤마를 다시 찍으면서 커서 위치를 (앞쪽 숫자 개수 기준으로) 유지한다. */
+  function reformat(input) {
+    var raw = input.value;
+    var caret = input.selectionStart;
+    var digitsBefore = raw.slice(0, caret).replace(/[^0-9]/g, '').length;
+
+    var d = digitsOf(raw).slice(0, MAX_DIGITS);
+    var next = d ? comma.format(Number(d)) : '';
+    input.value = next;
+
+    // 커서 앞에 같은 개수의 숫자가 오도록 위치를 되돌린다.
+    var pos = 0, seen = 0;
+    while (pos < next.length && seen < digitsBefore) {
+      if (/[0-9]/.test(next[pos])) seen++;
+      pos++;
+    }
+    if (document.activeElement === input) {
+      try { input.setSelectionRange(pos, pos); } catch (e) {}
+    }
+  }
+
+  function render() {
+    var night = valueOf(els.night);
+    var current = valueOf(els.current);
+    var weekly = current - night;
+
+    els.result.innerHTML = comma.format(weekly) + '<span class="unit">원</span>';
+    els.result.classList.toggle('is-negative', weekly < 0);
+    els.result.classList.toggle('is-zero', weekly === 0);
+    fitResult();
+
+    els.sumCurrent.textContent = comma.format(current) + '원';
+    els.sumNight.textContent = '- ' + comma.format(night) + '원';
+    els.sumResult.textContent = comma.format(weekly) + '원';
+
+    if (weekly < 0) {
+      els.caption.textContent = '야간매출이 현재매출보다 커요';
+      els.caption.classList.add('warn');
+    } else {
+      els.caption.classList.remove('warn');
+      els.caption.textContent = (night === 0 && current === 0)
+        ? '금액을 입력해 주세요'
+        : comma.format(current) + ' − ' + comma.format(night);
+    }
+
+    save({ night: night, current: current });
+  }
+
+  function pop() {
+    els.result.classList.remove('pop');
+    void els.result.offsetWidth; // reflow로 애니메이션 재시작
+    els.result.classList.add('pop');
+  }
+
+  /* ── 로컬 상태 저장 (JSON) ─────────────── */
+  function save(state) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function load() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if (typeof saved.night === 'number' && saved.night > 0) {
+        els.night.value = comma.format(saved.night);
+      }
+      if (typeof saved.current === 'number' && saved.current > 0) {
+        els.current.value = comma.format(saved.current);
+      }
+    } catch (e) {}
+  }
+
+  /* ── 이벤트 ───────────────────────────── */
+  [els.night, els.current].forEach(function (input) {
+    input.addEventListener('input', function () {
+      reformat(input);
+      render();
+      pop();
+    });
+    input.addEventListener('focus', function () {
+      // 모바일에서 키보드가 올라온 뒤 입력칸이 가려지지 않도록
+      setTimeout(function () {
+        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }, 250);
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') input.blur();
+    });
+  });
+
+  els.reset.addEventListener('click', function () {
+    els.night.value = '';
+    els.current.value = '';
+    render();
+    pop();
+    els.night.focus();
+  });
+
+  window.addEventListener('resize', fitResult);
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
