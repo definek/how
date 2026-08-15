@@ -155,6 +155,29 @@
     margin-bottom: 8px;
     letter-spacing: -0.2px;
   }
+  .field-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+    min-height: 32px;
+  }
+  .field-head label { margin-bottom: 0; }
+  .mini-group { display: flex; gap: 6px; }
+  .mini {
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    background: var(--grey100);
+    color: var(--grey600);
+  }
+  .mini:active { background: var(--grey200); }
+  .mini.on { background: var(--blue-bg); color: var(--blue); }
+  .mini.off { visibility: hidden; }   /* 자리는 유지해 흔들리지 않게 */
   .input-wrap {
     display: flex;
     align-items: center;
@@ -396,14 +419,23 @@
 
       <div class="fields">
         <div class="field">
-          <label for="date">날짜</label>
+          <div class="field-head">
+            <label for="date">날짜</label>
+            <div class="mini-group">
+              <button class="mini" type="button" id="btnToday" data-date="today">오늘</button>
+              <button class="mini" type="button" id="btnYesterday" data-date="yesterday">어제</button>
+            </div>
+          </div>
           <div class="input-wrap date">
             <input id="date" type="date" />
           </div>
         </div>
 
         <div class="field">
-          <label for="current">현재매출</label>
+          <div class="field-head">
+            <label for="current">현재매출</label>
+            <button class="mini" type="button" id="clearCurrent" data-clear="current">다시</button>
+          </div>
           <div class="input-wrap">
             <input id="current" type="tel" inputmode="numeric" pattern="[0-9]*"
                    autocomplete="off" enterkeyhint="done" placeholder="0"
@@ -413,7 +445,10 @@
         </div>
 
         <div class="field">
-          <label for="weekly">주간매출</label>
+          <div class="field-head">
+            <label for="weekly">주간매출</label>
+            <button class="mini" type="button" id="clearWeekly" data-clear="weekly">다시</button>
+          </div>
           <div class="input-wrap">
             <input id="weekly" type="tel" inputmode="numeric" pattern="[0-9]*"
                    autocomplete="off" enterkeyhint="done" placeholder="0"
@@ -484,9 +519,13 @@
   var DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
   var els = {
-    date:       document.getElementById('date'),
-    weekly:     document.getElementById('weekly'),
-    current:    document.getElementById('current'),
+    date:         document.getElementById('date'),
+    weekly:       document.getElementById('weekly'),
+    current:      document.getElementById('current'),
+    clearCurrent: document.getElementById('clearCurrent'),
+    clearWeekly:  document.getElementById('clearWeekly'),
+    btnToday:     document.getElementById('btnToday'),
+    btnYesterday: document.getElementById('btnYesterday'),
     result:     document.getElementById('result'),
     caption:    document.getElementById('caption'),
     sumWeekly:  document.getElementById('sumWeekly'),
@@ -512,11 +551,18 @@
   var editingId = null;
 
   /* ── 유틸 ───────────────────────────── */
-  function todayStr() {
-    var d = new Date();
+  function dateStr(d) {
     var m = String(d.getMonth() + 1).padStart(2, '0');
     var day = String(d.getDate()).padStart(2, '0');
     return d.getFullYear() + '-' + m + '-' + day;
+  }
+
+  function todayStr() { return dateStr(new Date()); }
+
+  function yesterdayStr() {
+    var d = new Date();
+    d.setDate(d.getDate() - 1);   // 월초·연초도 알아서 넘어간다
+    return dateStr(d);
   }
 
   function prettyDate(iso) {
@@ -731,8 +777,17 @@
     els.reset.textContent = editing ? '취소' : '다시 입력';
   }
 
+  /** 입력칸별 '다시'는 값이 있을 때만 보이고, 날짜 칩은 선택 상태를 표시한다. */
+  function renderChips() {
+    els.clearCurrent.classList.toggle('off', els.current.value === '');
+    els.clearWeekly.classList.toggle('off', els.weekly.value === '');
+    els.btnToday.classList.toggle('on', els.date.value === todayStr());
+    els.btnYesterday.classList.toggle('on', els.date.value === yesterdayStr());
+  }
+
   function renderAll() {
     renderResult();
+    renderChips();
     renderList();
     renderMode();
   }
@@ -889,6 +944,7 @@
     input.addEventListener('input', function () {
       reformat(input);
       renderResult();
+      renderChips();
       persist();
       pop();
     });
@@ -902,7 +958,32 @@
     });
   });
 
-  els.date.addEventListener('change', persist);
+  els.date.addEventListener('change', function () {
+    renderChips();
+    persist();
+  });
+
+  // 입력칸별 '다시' — 해당 칸만 비운다
+  [els.clearCurrent, els.clearWeekly].forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var input = els[btn.dataset.clear];
+      input.value = '';
+      renderResult();
+      renderChips();
+      persist();
+      pop();
+      input.focus();
+    });
+  });
+
+  // 날짜 빠른 선택
+  [els.btnToday, els.btnYesterday].forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      els.date.value = btn.dataset.date === 'today' ? todayStr() : yesterdayStr();
+      renderChips();
+      persist();
+    });
+  });
 
   els.save.addEventListener('click', saveRecord);
 
