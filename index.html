@@ -356,6 +356,27 @@
     letter-spacing: -0.2px;
   }
 
+  /* ── 클라우드 ───────────────────────── */
+  .cloud-desc {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--grey500);
+    letter-spacing: -0.2px;
+  }
+  .cloud-form { margin-top: 18px; }
+  .cloud-form[hidden] { display: none; }   /* .fields의 display:flex가 hidden을 덮지 않도록 */
+  .input-wrap.text { height: 52px; }
+  .input-wrap.text input {
+    text-align: left;
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+  }
+  .badge.ok { color: #0F9960; background: #E7F7EF; }
+  .badge.warn { color: var(--red); background: var(--red-bg); }
+  .badge.idle { color: var(--grey600); background: var(--grey100); }
+
   /* ── 백업 ───────────────────────────── */
   .backup { display: flex; gap: 10px; }
   .backup .btn { height: 50px; font-size: 15px; }
@@ -494,13 +515,46 @@
       <div class="empty" id="empty">아직 저장된 기록이 없어요</div>
     </section>
 
+    <section class="card">
+      <div class="card-head">
+        <h2>클라우드 동기화</h2>
+        <span class="badge" id="cloudBadge">연결 안 됨</span>
+      </div>
+
+      <p class="cloud-desc" id="cloudDesc">
+        Supabase에 연결하면 기록이 클라우드에 저장돼 다른 기기에서도 같은 목록을 볼 수 있어요.
+      </p>
+
+      <div class="fields cloud-form" id="cloudForm" hidden>
+        <div class="field">
+          <label for="cloudUrl">프로젝트 URL</label>
+          <div class="input-wrap text">
+            <input id="cloudUrl" type="url" autocomplete="off" autocapitalize="off"
+                   spellcheck="false" placeholder="https://xxxx.supabase.co" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="cloudKey">anon key</label>
+          <div class="input-wrap text">
+            <input id="cloudKey" type="password" autocomplete="off" autocapitalize="off"
+                   spellcheck="false" placeholder="eyJhbGciOi..." />
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-quiet narrow" id="cloudToggle" type="button">설정</button>
+        <button class="btn btn-secondary" id="cloudSync" type="button">지금 동기화</button>
+      </div>
+    </section>
+
     <div class="backup">
       <button class="btn btn-secondary" id="export" type="button">JSON 내보내기</button>
       <button class="btn btn-quiet" id="importBtn" type="button">불러오기</button>
       <input type="file" id="importFile" accept="application/json,.json" class="visually-hidden" />
     </div>
 
-    <footer>
+    <footer id="footNote">
       기록은 이 기기의 브라우저에만 JSON으로 저장돼요.<br />
       앱 삭제나 저장소 정리 시 사라지니 가끔 내보내 두세요.
     </footer>
@@ -513,6 +567,7 @@
   'use strict';
 
   var STORAGE_KEY = 'weekly-sales-calculator';
+  var CLOUD_KEY = 'weekly-sales-cloud';   // 접속 정보는 기기에만 두고 저장소에 올리지 않는다
   var SCHEMA_VERSION = 2;   // v1: {night, current} 입력 → v2: {weekly, current} 입력
   var MAX_DIGITS = 12;                  // 입력 상한: 999,999,999,999원
   var FONT_STEPS = [52, 44, 36, 30];    // 자리수가 길어지면 단계적으로 축소
@@ -541,14 +596,22 @@
     exportBtn:  document.getElementById('export'),
     importBtn:  document.getElementById('importBtn'),
     importFile: document.getElementById('importFile'),
-    toast:      document.getElementById('toast')
+    toast:      document.getElementById('toast'),
+    cloudBadge:  document.getElementById('cloudBadge'),
+    cloudForm:   document.getElementById('cloudForm'),
+    cloudUrl:    document.getElementById('cloudUrl'),
+    cloudKey:    document.getElementById('cloudKey'),
+    cloudToggle: document.getElementById('cloudToggle'),
+    cloudSync:   document.getElementById('cloudSync'),
+    footNote:    document.getElementById('footNote')
   };
 
   var comma = new Intl.NumberFormat('ko-KR');
 
-  /* 로컬 DB: { version, draft, records[] } — localStorage에 JSON으로 보관 */
-  var db = { version: SCHEMA_VERSION, draft: null, records: [] };
+  /* 로컬 DB: { version, draft, records[], trash[] } — localStorage에 JSON으로 보관 */
+  var db = { version: SCHEMA_VERSION, draft: null, records: [], trash: [] };
   var editingId = null;
+  var cloud = { url: '', key: '' };
 
   /* ── 유틸 ───────────────────────────── */
   function dateStr(d) {
@@ -653,7 +716,8 @@
       date: date,
       weekly: weeklyOf(rec, current),
       current: current,
-      savedAt: rec.savedAt || new Date().toISOString()
+      savedAt: rec.savedAt || new Date().toISOString(),
+      pending: !!rec.pending      // 클라우드에 아직 못 보낸 기록
     };
   }
 
@@ -665,6 +729,7 @@
     db.records = Array.isArray(saved.records)
       ? saved.records.map(sanitize).filter(Boolean)
       : [];
+    db.trash = Array.isArray(saved.trash) ? saved.trash.map(String) : [];
 
     // 구버전({night, current})도 입력값으로 이어받는다.
     var draft = saved.draft && typeof saved.draft === 'object' ? saved.draft : saved;
@@ -817,6 +882,8 @@
 
     var date = els.date.value || todayStr();
 
+    var saved;
+
     if (editingId !== null) {
       var target = db.records.filter(function (r) { return r.id === editingId; })[0];
       if (target) {
@@ -824,17 +891,20 @@
         target.weekly = weekly;
         target.current = current;
         target.savedAt = new Date().toISOString();
+        saved = target;
       }
       editingId = null;
       toast('기록을 수정했어요');
     } else {
-      db.records.push({
+      saved = {
         id: newId(),
         date: date,
         weekly: weekly,
         current: current,
-        savedAt: new Date().toISOString()
-      });
+        savedAt: new Date().toISOString(),
+        pending: false
+      };
+      db.records.push(saved);
       toast('기록을 저장했어요');
     }
 
@@ -843,6 +913,7 @@
     persist();
     renderAll();
     pop();
+    if (saved) pushRecord(saved);
   }
 
   function startEdit(id) {
@@ -880,6 +951,207 @@
     persist();
     renderAll();
     toast('기록을 삭제했어요');
+    pushDelete(id);
+  }
+
+  /* ── 클라우드 동기화 (Supabase REST) ──── */
+  /*
+   * 로컬(localStorage)이 항상 화면의 기준이고, 클라우드는 그 위에 얹는다.
+   * 네트워크가 없거나 실패하면 pending/trash 에 쌓아 두었다가 다음 기회에 보낸다.
+   */
+  function cloudReady() { return !!(cloud.url && cloud.key); }
+
+  function loadCloudConfig() {
+    try {
+      var c = JSON.parse(localStorage.getItem(CLOUD_KEY) || '{}');
+      cloud.url = typeof c.url === 'string' ? c.url : '';
+      cloud.key = typeof c.key === 'string' ? c.key : '';
+    } catch (e) { cloud.url = ''; cloud.key = ''; }
+    els.cloudUrl.value = cloud.url;
+    els.cloudKey.value = cloud.key;
+  }
+
+  function saveCloudConfig() {
+    try {
+      localStorage.setItem(CLOUD_KEY, JSON.stringify({ url: cloud.url, key: cloud.key }));
+    } catch (e) {}
+  }
+
+  function headers(extra) {
+    var h = {
+      apikey: cloud.key,
+      Authorization: 'Bearer ' + cloud.key,
+      'Content-Type': 'application/json'
+    };
+    if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
+    return h;
+  }
+
+  function checkRes(res) {
+    if (!res.ok) {
+      return res.text().then(function (t) {
+        throw new Error('HTTP ' + res.status + (t ? ' · ' + t.slice(0, 120) : ''));
+      });
+    }
+    return res;
+  }
+
+  function toRow(r) {
+    return {
+      id: r.id,
+      sale_date: r.date,
+      weekly: r.weekly,
+      current_total: r.current,
+      saved_at: r.savedAt
+    };
+  }
+
+  function fromRow(row) {
+    return sanitize({
+      id: row.id,
+      date: row.sale_date,
+      weekly: row.weekly,
+      current: row.current_total,
+      savedAt: row.saved_at
+    });
+  }
+
+  function cloudPull() {
+    return fetch(cloud.url + '/rest/v1/sales?select=*', { headers: headers() })
+      .then(checkRes)
+      .then(function (res) { return res.json(); });
+  }
+
+  function cloudUpsert(records) {
+    if (!records.length) return Promise.resolve();
+    return fetch(cloud.url + '/rest/v1/sales', {
+      method: 'POST',
+      headers: headers({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
+      body: JSON.stringify(records.map(toRow))
+    }).then(checkRes);
+  }
+
+  function cloudDelete(id) {
+    return fetch(cloud.url + '/rest/v1/sales?id=eq.' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: headers({ Prefer: 'return=minimal' })
+    }).then(checkRes);
+  }
+
+  function pendingRecords() {
+    return db.records.filter(function (r) { return r.pending; });
+  }
+
+  /** 밀린 저장·삭제를 먼저 보내고, 클라우드 목록을 받아 로컬과 합친다. */
+  function sync(opts) {
+    var quiet = opts && opts.quiet;
+    if (!cloudReady()) {
+      if (!quiet) toast('먼저 연결 설정을 해주세요');
+      return Promise.resolve(false);
+    }
+    if (sync.running) return sync.running;
+
+    setCloudStatus('syncing');
+
+    var trash = db.trash.slice();
+    var pushing = pendingRecords();
+    var startedAt = new Date().toISOString();
+    sync.running = cloudUpsert(pushing)
+      .then(function () {
+        return Promise.all(trash.map(function (id) { return cloudDelete(id); }));
+      })
+      .then(function () {
+        db.trash = db.trash.filter(function (id) { return trash.indexOf(id) === -1; });
+        return cloudPull();
+      })
+      .then(function (rows) {
+        // 여기까지 왔으면 밀렸던 기록은 모두 올라갔다.
+        pushing.forEach(function (r) { r.pending = false; });
+
+        var remote = rows.map(fromRow).filter(Boolean);
+        var byId = {};
+        remote.forEach(function (r) { byId[r.id] = r; });
+        // 동기화가 도는 동안 저장된 기록은 이번 응답에 없을 수 있으니 로컬 쪽을 남긴다.
+        db.records.forEach(function (r) {
+          if (r.pending || r.savedAt >= startedAt) byId[r.id] = r;
+        });
+
+        db.records = Object.keys(byId).map(function (k) { return byId[k]; });
+
+        sortRecords();
+        persist();
+        renderAll();
+        setCloudStatus('ok');
+        if (!quiet) toast('동기화했어요 · ' + db.records.length + '건');
+        return true;
+      })
+      .catch(function (err) {
+        setCloudStatus('error');
+        if (!quiet) toast(describeError(err));
+        return false;
+      })
+      .then(function (r) { sync.running = null; return r; });
+
+    return sync.running;
+  }
+
+  function describeError(err) {
+    var m = String(err && err.message || err);
+    if (/HTTP 401|HTTP 403/.test(m)) return 'anon key 또는 접근 권한을 확인해 주세요';
+    if (/HTTP 404/.test(m)) return 'sales 테이블을 찾을 수 없어요';
+    if (/Failed to fetch|NetworkError|load failed/i.test(m)) return '네트워크에 연결할 수 없어요';
+    return '동기화 실패 · ' + m.slice(0, 60);
+  }
+
+  /** 한 건 저장/삭제를 클라우드에도 반영한다. 실패해도 로컬에는 이미 남아 있다. */
+  function pushRecord(rec) {
+    if (!cloudReady()) return;
+    var id = rec.id;
+    rec.pending = true;
+    persist();
+    setCloudStatus();
+    cloudUpsert([rec])
+      .then(function () {
+        // 그 사이 동기화가 목록을 갈아끼웠을 수 있어 id로 다시 찾는다.
+        var cur = db.records.filter(function (r) { return r.id === id; })[0];
+        if (cur) cur.pending = false;
+        persist();
+        renderAll();
+        setCloudStatus('ok');
+      })
+      .catch(function () {
+        setCloudStatus('pending');
+      });
+  }
+
+  function pushDelete(id) {
+    if (!cloudReady()) return;
+    cloudDelete(id).catch(function () {
+      db.trash.push(id);
+      persist();
+      setCloudStatus('pending');
+    });
+  }
+
+  function setCloudStatus(state) {
+    var badge = els.cloudBadge;
+    var waiting = pendingRecords().length + db.trash.length;
+
+    els.footNote.innerHTML = cloudReady()
+      ? '기록은 이 기기와 클라우드에 함께 저장돼요.<br />연결을 끊어도 이 기기의 기록은 남아 있어요.'
+      : '기록은 이 기기의 브라우저에만 JSON으로 저장돼요.<br />앱 삭제나 저장소 정리 시 사라지니 가끔 내보내 두세요.';
+
+    badge.classList.remove('ok', 'warn', 'idle');
+    if (!cloudReady()) {
+      badge.textContent = '연결 안 됨';
+      badge.classList.add('idle');
+      return;
+    }
+    if (state === 'syncing') { badge.textContent = '동기화 중'; badge.classList.add('idle'); return; }
+    if (state === 'error')   { badge.textContent = '연결 실패'; badge.classList.add('warn'); return; }
+    if (waiting > 0)         { badge.textContent = '대기 ' + waiting + '건'; badge.classList.add('warn'); return; }
+    badge.textContent = '동기화됨';
+    badge.classList.add('ok');
   }
 
   /* ── 내보내기 / 불러오기 ─────────────── */
@@ -891,7 +1163,9 @@
     var payload = {
       version: SCHEMA_VERSION,
       exportedAt: new Date().toISOString(),
-      records: db.records
+      records: db.records.map(function (r) {
+        return { id: r.id, date: r.date, weekly: r.weekly, current: r.current, savedAt: r.savedAt };
+      })
     };
     var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
@@ -934,6 +1208,11 @@
       persist();
       renderAll();
       toast(clean.length + '건을 불러왔어요');
+      if (cloudReady()) {
+        clean.forEach(function (r) { r.pending = true; });
+        persist();
+        sync({ quiet: true });   // 불러온 기록을 클라우드에도 올린다
+      }
     };
     reader.onerror = function () { toast('파일을 읽지 못했어요'); };
     reader.readAsText(file);
@@ -1014,11 +1293,40 @@
     this.value = ''; // 같은 파일을 다시 골라도 change가 걸리도록
   });
 
+  els.cloudToggle.addEventListener('click', function () {
+    var open = !els.cloudForm.hidden;
+    if (open) {
+      // 설정 접기 = 입력한 접속 정보 저장
+      cloud.url = els.cloudUrl.value.trim().replace(/\/+$/, '');
+      cloud.key = els.cloudKey.value.trim();
+      saveCloudConfig();
+      els.cloudForm.hidden = true;
+      els.cloudToggle.textContent = '설정';
+      setCloudStatus();
+      if (cloudReady()) sync();
+      else toast('연결 정보를 지웠어요');
+    } else {
+      els.cloudForm.hidden = false;
+      els.cloudToggle.textContent = '완료';
+      els.cloudUrl.focus();
+    }
+  });
+
+  els.cloudSync.addEventListener('click', function () { sync(); });
+
+  // 오프라인 동안 밀린 기록을 온라인이 되면 자동으로 올린다
+  window.addEventListener('online', function () {
+    if (cloudReady() && (pendingRecords().length || db.trash.length)) sync({ quiet: true });
+  });
+
   window.addEventListener('resize', fitResult);
 
   load();
   persist();     // 구버전 데이터를 읽었다면 새 형식으로 즉시 다시 써 둔다
+  loadCloudConfig();
   renderAll();
+  setCloudStatus();
+  if (cloudReady()) sync({ quiet: true });
 })();
 </script>
 </body>
