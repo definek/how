@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <meta name="theme-color" content="#F2F4F6" />
-<title>주간매출 계산기</title>
+<title>야간매출 계산기</title>
 <style>
   :root {
     --blue: #3182F6;
@@ -378,12 +378,12 @@
 <body>
   <main class="app">
     <header>
-      <h1>주간매출 계산기</h1>
-      <p>현재매출에서 야간매출을 빼서 계산하고 기록해요.</p>
+      <h1>야간매출 계산기</h1>
+      <p>현재매출에서 주간매출을 빼서 계산하고 기록해요.</p>
     </header>
 
     <section class="card result">
-      <div class="label">주간매출</div>
+      <div class="label">야간매출</div>
       <div class="amount is-zero" id="result">0<span class="unit">원</span></div>
       <div class="caption" id="caption">금액을 입력해 주세요</div>
     </section>
@@ -403,9 +403,9 @@
         </div>
 
         <div class="field">
-          <label for="night">야간매출</label>
+          <label for="current">현재매출</label>
           <div class="input-wrap">
-            <input id="night" type="tel" inputmode="numeric" pattern="[0-9]*"
+            <input id="current" type="tel" inputmode="numeric" pattern="[0-9]*"
                    autocomplete="off" enterkeyhint="done" placeholder="0"
                    aria-describedby="result" />
             <span class="won">원</span>
@@ -413,9 +413,9 @@
         </div>
 
         <div class="field">
-          <label for="current">현재매출</label>
+          <label for="weekly">주간매출</label>
           <div class="input-wrap">
-            <input id="current" type="tel" inputmode="numeric" pattern="[0-9]*"
+            <input id="weekly" type="tel" inputmode="numeric" pattern="[0-9]*"
                    autocomplete="off" enterkeyhint="done" placeholder="0"
                    aria-describedby="result" />
             <span class="won">원</span>
@@ -429,17 +429,17 @@
           <span class="v" id="sumCurrent">0원</span>
         </div>
         <div class="row">
-          <span class="k">야간매출</span>
-          <span class="v" id="sumNight">- 0원</span>
+          <span class="k">주간매출</span>
+          <span class="v" id="sumWeekly">- 0원</span>
         </div>
         <div class="row total">
-          <span class="k">주간매출</span>
+          <span class="k">야간매출</span>
           <span class="v" id="sumResult">0원</span>
         </div>
       </div>
 
       <div class="btn-row">
-        <button class="btn btn-quiet narrow" id="reset" type="button">초기화</button>
+        <button class="btn btn-quiet narrow" id="reset" type="button">다시 입력</button>
         <button class="btn btn-primary" id="save" type="button">저장하기</button>
       </div>
     </section>
@@ -451,7 +451,7 @@
       </div>
 
       <div class="list-total">
-        <span class="k">주간매출 합계</span>
+        <span class="k">야간매출 합계</span>
         <span class="v" id="grandTotal">0원</span>
       </div>
 
@@ -478,18 +478,18 @@
   'use strict';
 
   var STORAGE_KEY = 'weekly-sales-calculator';
-  var SCHEMA_VERSION = 1;
+  var SCHEMA_VERSION = 2;   // v1: {night, current} 입력 → v2: {weekly, current} 입력
   var MAX_DIGITS = 12;                  // 입력 상한: 999,999,999,999원
   var FONT_STEPS = [52, 44, 36, 30];    // 자리수가 길어지면 단계적으로 축소
   var DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
   var els = {
     date:       document.getElementById('date'),
-    night:      document.getElementById('night'),
+    weekly:     document.getElementById('weekly'),
     current:    document.getElementById('current'),
     result:     document.getElementById('result'),
     caption:    document.getElementById('caption'),
-    sumNight:   document.getElementById('sumNight'),
+    sumWeekly:  document.getElementById('sumWeekly'),
     sumCurrent: document.getElementById('sumCurrent'),
     sumResult:  document.getElementById('sumResult'),
     reset:      document.getElementById('reset'),
@@ -585,20 +585,28 @@
     db.version = SCHEMA_VERSION;
     db.draft = {
       date: els.date.value || todayStr(),
-      night: valueOf(els.night),
+      weekly: valueOf(els.weekly),
       current: valueOf(els.current)
     };
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch (e) {}
   }
 
+  /** v1 기록({night, current})은 두 금액이 그대로 유지되도록 주간매출로 환산한다. */
+  function weeklyOf(rec, current) {
+    return (rec.weekly === undefined && rec.night !== undefined)
+      ? num(current - num(rec.night))
+      : num(rec.weekly);
+  }
+
   function sanitize(rec) {
     if (!rec || typeof rec !== 'object') return null;
     var date = /^\d{4}-\d{2}-\d{2}$/.test(rec.date) ? rec.date : todayStr();
+    var current = num(rec.current);
     return {
       id: String(rec.id || newId()),
       date: date,
-      night: num(rec.night),
-      current: num(rec.current),
+      weekly: weeklyOf(rec, current),
+      current: current,
       savedAt: rec.savedAt || new Date().toISOString()
     };
   }
@@ -614,9 +622,11 @@
 
     // 구버전({night, current})도 입력값으로 이어받는다.
     var draft = saved.draft && typeof saved.draft === 'object' ? saved.draft : saved;
+    var draftCurrent = num(draft.current);
+    var draftWeekly = weeklyOf(draft, draftCurrent);
     els.date.value = /^\d{4}-\d{2}-\d{2}$/.test(draft.date) ? draft.date : todayStr();
-    if (num(draft.night) > 0) els.night.value = comma.format(num(draft.night));
-    if (num(draft.current) > 0) els.current.value = comma.format(num(draft.current));
+    if (draftCurrent > 0) els.current.value = comma.format(draftCurrent);
+    if (draftWeekly > 0) els.weekly.value = comma.format(draftWeekly);
 
     sortRecords();
   }
@@ -635,27 +645,27 @@
 
   /* ── 렌더 ───────────────────────────── */
   function renderResult() {
-    var night = valueOf(els.night);
+    var weekly = valueOf(els.weekly);
     var current = valueOf(els.current);
-    var weekly = current - night;
+    var night = current - weekly;      // 야간매출 = 현재매출 − 주간매출
 
-    els.result.innerHTML = comma.format(weekly) + '<span class="unit">원</span>';
-    els.result.classList.toggle('is-negative', weekly < 0);
-    els.result.classList.toggle('is-zero', weekly === 0);
+    els.result.innerHTML = comma.format(night) + '<span class="unit">원</span>';
+    els.result.classList.toggle('is-negative', night < 0);
+    els.result.classList.toggle('is-zero', night === 0);
     fitResult();
 
     els.sumCurrent.textContent = comma.format(current) + '원';
-    els.sumNight.textContent = '- ' + comma.format(night) + '원';
-    els.sumResult.textContent = comma.format(weekly) + '원';
+    els.sumWeekly.textContent = '- ' + comma.format(weekly) + '원';
+    els.sumResult.textContent = comma.format(night) + '원';
 
-    if (weekly < 0) {
-      els.caption.textContent = '야간매출이 현재매출보다 커요';
+    if (night < 0) {
+      els.caption.textContent = '주간매출이 현재매출보다 커요';
       els.caption.classList.add('warn');
     } else {
       els.caption.classList.remove('warn');
-      els.caption.textContent = (night === 0 && current === 0)
+      els.caption.textContent = (weekly === 0 && current === 0)
         ? '금액을 입력해 주세요'
-        : comma.format(current) + ' − ' + comma.format(night);
+        : comma.format(current) + ' − ' + comma.format(weekly);
     }
   }
 
@@ -664,12 +674,12 @@
 
     var total = 0;
     db.records.forEach(function (r) {
-      total += r.current - r.night;
+      total += r.current - r.weekly;
 
       var li = document.createElement('li');
       if (r.id === editingId) li.className = 'editing';
 
-      var weekly = r.current - r.night;
+      var night = r.current - r.weekly;
       var main = document.createElement('div');
       main.className = 'rec-main';
 
@@ -678,12 +688,12 @@
       date.textContent = prettyDate(r.date);
 
       var amount = document.createElement('div');
-      amount.className = 'rec-amount' + (weekly < 0 ? ' neg' : '');
-      amount.textContent = comma.format(weekly) + '원';
+      amount.className = 'rec-amount' + (night < 0 ? ' neg' : '');
+      amount.textContent = comma.format(night) + '원';
 
       var sub = document.createElement('div');
       sub.className = 'rec-sub';
-      sub.textContent = '현재 ' + comma.format(r.current) + ' − 야간 ' + comma.format(r.night);
+      sub.textContent = '현재 ' + comma.format(r.current) + ' − 주간 ' + comma.format(r.weekly);
 
       main.appendChild(date);
       main.appendChild(amount);
@@ -718,7 +728,7 @@
     var editing = editingId !== null;
     els.editBadge.classList.toggle('hidden', !editing);
     els.save.textContent = editing ? '수정 완료' : '저장하기';
-    els.reset.textContent = editing ? '취소' : '초기화';
+    els.reset.textContent = editing ? '취소' : '다시 입력';
   }
 
   function renderAll() {
@@ -735,19 +745,19 @@
 
   /* ── CRUD ───────────────────────────── */
   function clearInputs() {
-    els.night.value = '';
+    els.weekly.value = '';
     els.current.value = '';
     els.date.value = todayStr();
   }
 
   function saveRecord() {
-    var night = valueOf(els.night);
+    var weekly = valueOf(els.weekly);
     var current = valueOf(els.current);
 
-    if (night === 0 && current === 0) {
+    if (weekly === 0 && current === 0) {
       toast('금액을 먼저 입력해 주세요');
       els.current.focus();
-      return;
+      return;   // 두 칸 모두 0이면 저장하지 않는다
     }
 
     var date = els.date.value || todayStr();
@@ -756,7 +766,7 @@
       var target = db.records.filter(function (r) { return r.id === editingId; })[0];
       if (target) {
         target.date = date;
-        target.night = night;
+        target.weekly = weekly;
         target.current = current;
         target.savedAt = new Date().toISOString();
       }
@@ -766,7 +776,7 @@
       db.records.push({
         id: newId(),
         date: date,
-        night: night,
+        weekly: weekly,
         current: current,
         savedAt: new Date().toISOString()
       });
@@ -786,7 +796,7 @@
 
     editingId = id;
     els.date.value = r.date;
-    els.night.value = r.night ? comma.format(r.night) : '';
+    els.weekly.value = r.weekly ? comma.format(r.weekly) : '';
     els.current.value = r.current ? comma.format(r.current) : '';
 
     persist();
@@ -832,7 +842,7 @@
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'weekly-sales-' + todayStr() + '.json';
+    a.download = 'sales-' + todayStr() + '.json';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -875,7 +885,7 @@
   }
 
   /* ── 이벤트 ─────────────────────────── */
-  [els.night, els.current].forEach(function (input) {
+  [els.current, els.weekly].forEach(function (input) {
     input.addEventListener('input', function () {
       reformat(input);
       renderResult();
@@ -906,7 +916,7 @@
     persist();
     renderAll();
     pop();
-    els.night.focus();
+    els.current.focus();
   });
 
   els.records.addEventListener('click', function (e) {
@@ -926,6 +936,7 @@
   window.addEventListener('resize', fitResult);
 
   load();
+  persist();     // 구버전 데이터를 읽었다면 새 형식으로 즉시 다시 써 둔다
   renderAll();
 })();
 </script>
